@@ -33,6 +33,7 @@ milestone shown).
 | OD-19 | User documentation format (SRS TBD-2) | Open | M6 |
 | OD-20 | Hosting, uptime and concurrency targets (SRS TBD-1/3/4) | Open | M6 |
 | OD-21 | Portion sizing of planned meals | Decided | M3 |
+| OD-22 | Running locally without Docker (SQLite) | Decided | M6 |
 
 ---
 
@@ -200,3 +201,24 @@ grocery quantities and the weekly-budget check all use the portioned values, and
 validator checks portioned totals. Hard constraints are unaffected (portioning never changes
 which recipes are allowed). The UI shows e.g. "1.5× serving" and explains it in the help FAQ.
 Test: `test_choose_servings_steps_and_limits`, `test_plan_meets_calorie_target_approximately`.
+
+### OD-22 – Running locally without Docker
+**Context:** the development machine cannot run Docker Desktop (its Windows service needs
+administrator rights), so the Docker-based PostgreSQL setup is not available to every team
+member. Neither the SRS nor the Description requires Docker; SRS TBD-1 leaves the database
+engine open and PostgreSQL was chosen for production (OD-20).
+
+**Decision:** PostgreSQL 17 remains the production and CI database. For local development and
+testing, a **SQLite file** is a supported alternative:
+* `scripts/setup-local.ps1` writes `backend/.env` with `DATABASE_URL` / `TEST_DATABASE_URL`
+  pointing at `%LOCALAPPDATA%\NutriPlan\nutriplan.db` / `nutriplan_test.db` (outside OneDrive
+  to avoid sync locks), applies the **same Alembic migrations** (verified on both engines, including
+  `alembic check`) and loads the dataset. `start.cmd` (`scripts/start-local.ps1`) does the same
+  on first use, then starts backend and frontend and opens the browser.
+* All business rules live in Python (rule engine, services), not in database-specific SQL,
+  so behaviour is identical; constraints (CHECK, UNIQUE, foreign keys – enabled with
+  `PRAGMA foreign_keys=ON`) are enforced on both.
+* The integration tests run against SQLite locally and against PostgreSQL in CI on every
+  push; CI also builds the Docker image. PostgreSQL-only behaviour is therefore still
+  verified before release.
+* SQLite is not supported for production (single writer, no network access).

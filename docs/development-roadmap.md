@@ -37,6 +37,8 @@ items need a Product Owner decision, not code:
 * **OD-19 / OD-20** (documentation format, hosting, concurrency, uptime – SRS TBD-1…4): the
   release ships in-app help and a provider-neutral container image; targets are not set.
 * HTTPS (SRS §5.3) is provided by the hosting reverse proxy at deployment time.
+* Docker is optional: `start.cmd` (scripts/start-local.ps1) runs the whole project on
+  SQLite (OD-22); CI verifies PostgreSQL and the Docker image.
 
 ## Out of scope for Release 1.0
 

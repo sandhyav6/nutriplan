@@ -33,3 +33,8 @@ Thumbs.db
 
 # Local Claude Code tooling
 .claude/
+
+# Local SQLite databases (scripts/setup-local.ps1 keeps them in %LOCALAPPDATA%\NutriPlan)
+*.db
+*.sqlite3
+backend/.data/

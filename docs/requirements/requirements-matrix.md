@@ -91,7 +91,9 @@ by automated tests.** Status legend: **Done** = implemented and tested.
 
 ## PostgreSQL integration tests
 
-`test_db_integration.py` (marked `integration`, run when `TEST_DATABASE_URL` is set and in CI):
+`test_db_integration.py` (marked `integration`, run when `TEST_DATABASE_URL` is set):
 migration upgrade/downgrade round-trip, database-level enum check, and the full user flow
-(seed → register → profile → plan → feedback → replace → grocery list → dashboard) on
-PostgreSQL. All other tests use in-memory SQLite.
+(seed → register → profile → plan → feedback → replace → grocery list → dashboard) through the
+real Alembic migrations. CI runs them on **PostgreSQL** on every push; locally they run on the
+SQLite test file configured by `scripts/setup-local.ps1` (OD-22) – all 3 pass there. All other
+tests use in-memory SQLite.

@@ -82,7 +82,11 @@ nutriplan/
 ├── docker/postgres/init/    # creates the test database on first start
 ├── docker/app/entrypoint.sh # production container: migrate, then start Uvicorn
 ├── Dockerfile               # production image (API + built frontend)
-├── scripts/extract_docx.py  # regenerates the .md requirement extracts
+├── start.cmd / setup.cmd    # one-command start / setup without Docker
+├── scripts/
+│   ├── setup-local.ps1      # one-time setup without Docker (SQLite) – via setup.cmd
+│   ├── start-local.ps1      # setup if needed, start backend + frontend, open browser – via start.cmd
+│   └── extract_docx.py      # regenerates the .md requirement extracts
 ├── compose.yaml
 ├── .env.example             # Docker Compose variables
 └── .github/workflows/ci.yml
@@ -92,10 +96,47 @@ nutriplan/
 
 * **Python 3.14** (`py -3.14` on Windows)
 * **Node.js 22 LTS** (≥ 20.19) and npm
-* **Docker Desktop** (for PostgreSQL)
 * Git
+* *Optional:* **Docker Desktop** – only for the PostgreSQL setup below. **Docker is not
+  required** to run, develop or test NutriPlan.
 
-## Setup (Windows PowerShell)
+## Quick start without Docker (recommended on Windows)
+
+Uses a local SQLite database file, so nothing else needs to be installed (OD-22). From the
+repository root in PowerShell (or double-click `start.cmd` in Explorer):
+
+```powershell
+.\start.cmd
+```
+
+That one command:
+
+1. sets the project up on first use (`backend\.venv`, Python and npm packages, `backend\.env`);
+2. creates the database (folder included), applies the migrations and loads the illustrative
+   food & recipe dataset – both are skipped when already done;
+3. starts the **backend** in its own window and waits until `/api/v1/health` answers;
+4. starts the **frontend** in its own window and **opens your browser** at it.
+
+Close the two "NutriPlan" windows to stop. If port 8000 or 5173 is busy, the next free port is
+used automatically and printed.
+
+| Command | What it does |
+| --- | --- |
+| `.\start.cmd` | Development mode (hot reload) – the browser opens at http://localhost:5173 |
+| `.\start.cmd -Production` | Builds the frontend and serves API + frontend from **one** process, like the Docker image – http://localhost:8000 |
+| `.\start.cmd -Port 8080` / `-NoBrowser` | Fixed backend port / don't open the browser |
+| `.\setup.cmd` | Setup only (`start.cmd` runs it automatically on first use) |
+
+The scripts behind these are `scripts\start-local.ps1` and `scripts\setup-local.ps1`. The
+database lives in `%LOCALAPPDATA%\NutriPlan\nutriplan.db` – outside OneDrive, because syncing a
+live database file can corrupt it. If that folder is not writable, the scripts use
+`backend\.data\` instead and update `backend\.env`. To start over with an empty database, close
+the app and delete the `.db` file; the next `start.cmd` recreates it.
+
+PostgreSQL stays the production and CI database. Everything in the app works the same on
+SQLite; the PostgreSQL-specific checks run automatically in GitHub Actions on every push.
+
+## Setup with PostgreSQL in Docker (optional)
 
 Run from the repository root unless noted.
 
@@ -138,7 +179,11 @@ macOS / Linux differences: `cp` instead of `Copy-Item`, `python3.14 -m venv .ven
 `source .venv/bin/activate`.
 
 The password in `.env` and the one inside `DATABASE_URL` / `TEST_DATABASE_URL` in
-`backend/.env` must match.
+`backend/.env` must match. (If you already ran `setup-local.ps1`, replace its two SQLite URLs
+in `backend/.env` with the PostgreSQL ones from `backend/.env.example`.)
+
+**Native PostgreSQL without Docker** also works: install PostgreSQL 17, create the databases
+`nutriplan` and `nutriplan_test`, and put their URLs (port 5432) in `backend/.env`.
 
 ### Using the app
 
@@ -201,8 +246,9 @@ docker run -p 8000:8000 -e DATABASE_URL=postgresql+psycopg://user:pass@dbhost:54
 | `FORWARDED_ALLOW_IPS` | Address of the TLS-terminating reverse proxy trusted for `X-Forwarded-*` |
 
 In production, run the container behind HTTPS (SRS §5.3) and leave `COOKIE_SECURE` unset.
-Without Docker, `npm run build` plus `FRONTEND_DIST_DIR=../frontend/dist` in `backend/.env`
-gives the same single-origin setup under `uvicorn`.
+**Without Docker**, `.\start.cmd -Production` gives the same single-origin setup
+(it runs `npm run build` and starts Uvicorn with `FRONTEND_DIST_DIR=frontend/dist`). The image
+itself is built and checked by CI on every push.
 
 ## Tests and checks
 
@@ -210,8 +256,8 @@ gives the same single-origin setup under `uvicorn`.
 # Backend (inside backend/, venv active)
 python -m ruff check .
 python -m ruff format --check .
-python -m pytest                    # integration tests run when TEST_DATABASE_URL is set
-python -m pytest -m integration     # only the PostgreSQL integration tests (needs the db running)
+python -m pytest                    # everything; integration tests run when TEST_DATABASE_URL is set
+python -m pytest -m integration     # only the migration/full-flow integration tests
 
 # Frontend (inside frontend/)
 npm run lint
@@ -220,18 +266,28 @@ npm test
 npm run build
 ```
 
-CI runs all of the above on every push to `main` and on pull requests.
+Integration tests run against whatever `TEST_DATABASE_URL` points to: the SQLite test file
+written by `setup-local.ps1` locally, PostgreSQL in Docker if you use it, and **always
+PostgreSQL in CI**. CI runs all of the above, plus the Docker image build, on every push to
+`main` and on pull requests – so PostgreSQL and Docker are verified even if you never install
+them.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
-| `docker compose` cannot connect to `dockerDesktopLinuxEngine` | Start Docker Desktop and wait until it reports *Engine running*. |
+| `docker compose` cannot connect to `dockerDesktopLinuxEngine` | Start Docker Desktop and wait until it reports *Engine running* – or skip Docker entirely: [Quick start without Docker](#quick-start-without-docker-recommended-on-windows). |
+| `running scripts is disabled on this system` | Use `.\start.cmd` / `.\setup.cmd` – they bypass the execution policy for these scripts only. |
+| `'start.cmd' is not recognized` | In PowerShell, type `.\start.cmd` (with `.\`) from the repository root. |
+| `unable to open database file` | Run `.\start.cmd` again – it creates the database folder (or falls back to `backend\.data`). Check that `DATABASE_URL` in `backend\.env` points to a folder you can write to. |
+| Browser shows **API offline** | Read the error in the "NutriPlan backend" window, fix it, and run `.\start.cmd` again. |
+| `database is locked` (SQLite) | Another NutriPlan process is using the file – close other running backend windows. |
+| Port 8000 or 5173 already in use | `start.cmd` picks the next free port automatically, or set one with `.\start.cmd -Port 8080`. |
 | `Set POSTGRES_USER in .env` | Copy `.env.example` to `.env` in the repository root. |
 | Port 5433 already in use | Change `POSTGRES_HOST_PORT` in `.env` and the port in `backend/.env`. |
 | `password authentication failed` | Passwords in `.env` and `backend/.env` differ, or the volume was created with an old password: `docker compose down -v` (deletes local data) and start again. |
-| `DATABASE_URL is not configured` | Create `backend/.env` from `backend/.env.example`, and run commands from inside `backend/`. |
-| Health shows `database: unavailable` | PostgreSQL is not running or the URL is wrong; the API itself is up. |
+| `DATABASE_URL is not configured` | Run `.\setup.cmd` (or create `backend/.env` from `backend/.env.example`), and run commands from inside `backend/`. |
+| Health shows `database: unavailable` | The database in `DATABASE_URL` is not reachable (PostgreSQL not running or wrong URL); the API itself is up. |
 | Frontend shows **API offline** | Start the backend on port 8000 (or set `VITE_API_PROXY_TARGET`). |
 | `Activate.ps1 cannot be loaded` | `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`, or call `.\.venv\Scripts\python.exe` directly. |
 | Generating a plan says the catalogue is empty | Run `python -m app.cli seed-catalogue`, or add recipes in the admin panel. |
