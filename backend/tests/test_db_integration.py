@@ -1,4 +1,7 @@
-"""PostgreSQL integration tests – run only when TEST_DATABASE_URL points to a test database."""
+"""Database integration tests (real Alembic migrations) – run when TEST_DATABASE_URL is set.
+
+CI runs them against PostgreSQL. Locally they also run against a SQLite file when Docker /
+PostgreSQL is unavailable (see README – "Running without Docker")."""
 
 from collections.abc import Iterator
 from decimal import Decimal
@@ -9,6 +12,7 @@ from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db.session import build_engine, get_db
@@ -60,7 +64,7 @@ def test_database_rejects_invalid_enum_value(test_database_url: str) -> None:
     command.upgrade(_alembic_config(test_database_url), "head")
     engine = create_engine(test_database_url)
     try:
-        with engine.connect() as connection, pytest.raises(Exception, match="check"):
+        with engine.connect() as connection, pytest.raises(IntegrityError, match=r"(?i)check"):
             connection.execute(
                 text(
                     "INSERT INTO users (email, full_name, password_hash, role) "

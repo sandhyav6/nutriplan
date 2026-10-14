@@ -29,3 +29,13 @@ def test_settings_read_environment_variables(monkeypatch: pytest.MonkeyPatch) ->
 def test_settings_reject_unknown_environment() -> None:
     with pytest.raises(ValidationError):
         Settings(_env_file=None, environment="staging")  # type: ignore[arg-type]
+
+
+def test_sqlite_database_folder_is_created(tmp_path) -> None:  # type: ignore[no-untyped-def]
+    from app.db.session import ensure_sqlite_directory
+
+    target = tmp_path / "new" / "folder" / "nutriplan.db"
+    ensure_sqlite_directory(f"sqlite:///{target.as_posix()}")
+    assert target.parent.is_dir()
+    ensure_sqlite_directory("sqlite://")  # in-memory: nothing to create
+    ensure_sqlite_directory("postgresql+psycopg://u:p@localhost/db")  # not SQLite: no-op

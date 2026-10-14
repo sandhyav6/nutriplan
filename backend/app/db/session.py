@@ -2,16 +2,27 @@
 
 from collections.abc import Iterator
 from functools import lru_cache
+from pathlib import Path
 
-from sqlalchemy import Engine, create_engine, event, text
+from sqlalchemy import Engine, create_engine, event, make_url, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
 
 
+def ensure_sqlite_directory(url: str) -> None:
+    """Create the folder of a SQLite database file so a fresh machine needs no manual setup."""
+    if not url.startswith("sqlite"):
+        return
+    database = make_url(url).database
+    if database and database != ":memory:" and not database.startswith("file:"):
+        Path(database).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+
+
 def build_engine(url: str) -> Engine:
-    """Create an engine. PostgreSQL is the supported database; SQLite is used by unit tests."""
+    """Create an engine: PostgreSQL in production/CI, SQLite for tests and local dev (OD-22)."""
     if url.startswith("sqlite"):
+        ensure_sqlite_directory(url)
         engine = create_engine(url, connect_args={"check_same_thread": False})
 
         @event.listens_for(engine, "connect")
