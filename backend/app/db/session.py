@@ -3,10 +3,25 @@
 from collections.abc import Iterator
 from functools import lru_cache
 
-from sqlalchemy import Engine, create_engine, text
+from sqlalchemy import Engine, create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
+
+
+def build_engine(url: str) -> Engine:
+    """Create an engine. PostgreSQL is the supported database; SQLite is used by unit tests."""
+    if url.startswith("sqlite"):
+        engine = create_engine(url, connect_args={"check_same_thread": False})
+
+        @event.listens_for(engine, "connect")
+        def _enable_foreign_keys(dbapi_connection, _record):  # type: ignore[no-untyped-def]
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+        return engine
+    return create_engine(url, pool_pre_ping=True)
 
 
 @lru_cache
@@ -16,7 +31,7 @@ def get_engine() -> Engine:
         raise RuntimeError(
             "DATABASE_URL is not configured. Copy backend/.env.example to backend/.env."
         )
-    return create_engine(settings.database_url, pool_pre_ping=True)
+    return build_engine(settings.database_url)
 
 
 @lru_cache

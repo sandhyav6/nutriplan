@@ -46,42 +46,108 @@ class BudgetBreakdown:
 
 @dataclass(frozen=True, slots=True)
 class MealCandidate:
-    """A recipe as seen by the engine, with pre-calculated per-serving values."""
+    """A recipe as seen by the engine: pre-calculated values for ONE serving."""
 
     recipe_id: int
     name: str
     slot: MealSlot
+    category_id: int
     diet_type: DietType
     prep_time_min: int
-    calories_kcal: Decimal
-    protein_g: Decimal
-    carbs_g: Decimal
-    fat_g: Decimal
+    calories_kcal: float
+    protein_g: float
+    carbs_g: float
+    fat_g: float
+    sugar_g: float
+    fibre_g: float
     cost_inr: Decimal
     allergen_ids: frozenset[int] = frozenset()
     food_ids: frozenset[int] = frozenset()
+    # Main (non-pantry) ingredients – used for variety/similarity.
+    core_food_ids: frozenset[int] = frozenset()
+    has_vegetable: bool = False
+    has_fruit: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class Portion:
+    """A candidate scaled to a number of servings (OD-21)."""
+
+    candidate: MealCandidate
+    servings: Decimal
+
+    @property
+    def calories_kcal(self) -> float:
+        return self.candidate.calories_kcal * float(self.servings)
+
+    @property
+    def protein_g(self) -> float:
+        return self.candidate.protein_g * float(self.servings)
+
+    @property
+    def carbs_g(self) -> float:
+        return self.candidate.carbs_g * float(self.servings)
+
+    @property
+    def fat_g(self) -> float:
+        return self.candidate.fat_g * float(self.servings)
+
+    @property
+    def sugar_g(self) -> float:
+        return self.candidate.sugar_g * float(self.servings)
+
+    @property
+    def fibre_g(self) -> float:
+        return self.candidate.fibre_g * float(self.servings)
+
+    @property
+    def cost_inr(self) -> Decimal:
+        return (self.candidate.cost_inr * self.servings).quantize(Decimal("0.01"))
 
 
 @dataclass(frozen=True, slots=True)
 class RankedCandidate:
-    candidate: MealCandidate
+    portion: Portion
     score: float
 
 
 @dataclass(frozen=True, slots=True)
 class PlannedSlot:
-    """One cell of the plan: either a recipe or an explanation (REQ-4.2.8)."""
+    """One cell of the plan: either a portioned recipe or an explanation (REQ-4.2.8)."""
 
     day_of_week: int
     slot: MealSlot
-    candidate: MealCandidate | None
+    portion: Portion | None
     unavailable_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PlanNote:
+    code: str  # e.g. "nutrition", "variety", "unavailable"
+    message: str
 
 
 @dataclass(frozen=True, slots=True)
 class PlanResult:
     slots: tuple[PlannedSlot, ...]
-    notes: tuple[str, ...] = ()
+    notes: tuple[PlanNote, ...] = ()
+
+    @property
+    def total_cost_inr(self) -> Decimal:
+        return sum((s.portion.cost_inr for s in self.slots if s.portion), Decimal("0"))
+
+    @property
+    def total_calories_kcal(self) -> float:
+        return sum(s.portion.calories_kcal for s in self.slots if s.portion)
+
+
+@dataclass(frozen=True, slots=True)
+class Infeasibility:
+    """Returned instead of a plan when a hard constraint cannot be met (OD-01)."""
+
+    code: str
+    message: str
+    minimum_weekly_cost_inr: Decimal | None = None
 
 
 @dataclass(frozen=True, slots=True)

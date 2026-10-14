@@ -1,12 +1,11 @@
 """Milestone 0: the rule engine exists structurally; algorithms are explicitly pending."""
 
 import importlib
-from decimal import Decimal
 
 import pytest
 
 from app.models.enums import ActivityLevel, FeedbackType
-from app.rule_engine import config, nutrition
+from app.rule_engine import config
 
 MODULES = ["nutrition", "filters", "ranking", "variety", "planner", "validator", "types", "config"]
 
@@ -39,8 +38,3 @@ def test_documented_constants_match_requirements() -> None:
     assert config.MAX_REPEATS_PER_WEEK == 2
     assert config.MUSCLE_GAIN_MIN_PROTEIN_G == 120
     assert len(config.MEAL_SLOTS) == 4
-
-
-def test_later_milestone_algorithms_are_explicitly_not_implemented_yet() -> None:
-    with pytest.raises(NotImplementedError):
-        nutrition.calculate_budget_breakdown(Decimal("1500"))

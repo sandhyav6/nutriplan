@@ -70,6 +70,7 @@ class PlannedMeal(TimestampMixin, Base):
             "recipe_id IS NOT NULL OR unavailable_reason IS NOT NULL",
             name="recipe_or_reason",
         ),
+        CheckConstraint("servings > 0", name="servings_positive"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -80,6 +81,10 @@ class PlannedMeal(TimestampMixin, Base):
     slot: Mapped[MealSlot] = mapped_column(enum_column(MealSlot, "meal_slot"), nullable=False)
     recipe_id: Mapped[int | None] = mapped_column(
         ForeignKey("recipes.id", ondelete="RESTRICT"), index=True
+    )
+    # Portion multiplier chosen so the plan meets the calorie target (OD-21).
+    servings: Mapped[Decimal] = mapped_column(
+        Numeric(4, 2), nullable=False, default=Decimal("1.00"), server_default="1.00"
     )
     unavailable_reason: Mapped[str | None] = mapped_column(Text)  # REQ-4.2.8
 

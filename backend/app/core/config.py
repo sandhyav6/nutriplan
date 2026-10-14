@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # None → Secure cookies automatically in production, plain HTTP allowed locally.
     cookie_secure: bool | None = None
 
+    # Directory with the built frontend (index.html + assets) to serve in production.
+    frontend_dist_dir: str = ""
+
     @computed_field  # type: ignore[prop-decorator]
     @property
     def cors_origin_list(self) -> list[str]:

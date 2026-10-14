@@ -43,8 +43,13 @@ MEAL_SLOTS: Final[tuple[MealSlot, ...]] = (
     MealSlot.SNACK,
 )
 
-# TBD (OD-05): share of the daily calorie target / daily budget assigned to each slot.
-SLOT_SHARES: Final[dict[MealSlot, float] | None] = None
+# DECIDED (OD-05): share of the daily calorie target and daily budget per slot.
+SLOT_SHARES: Final[dict[MealSlot, float]] = {
+    MealSlot.BREAKFAST: 0.25,
+    MealSlot.LUNCH: 0.35,
+    MealSlot.DINNER: 0.30,
+    MealSlot.SNACK: 0.10,
+}
 
 # DECIDED (OD-06): calorie adjustment applied to the activity baseline for each goal.
 # Muscle Gain +300 gives 2600 kcal for a moderately active user, matching Description §8.3.
@@ -73,8 +78,44 @@ BMI_CATEGORY_UPPER_BOUNDS: Final[tuple[tuple[float, str], ...]] = (
 )
 BMI_TOP_CATEGORY: Final[str] = "obese"
 
-# TBD (OD-07): "acceptable tolerance" for replacement calories (SRS REQ-4.5.4).
-REPLACEMENT_CALORIE_TOLERANCE: Final[float | None] = None
+# DECIDED (OD-07): "acceptable tolerance" for replacement calories (SRS REQ-4.5.4) – ±20 %.
+REPLACEMENT_CALORIE_TOLERANCE: Final[float] = 0.20
 
-# TBD (OD-08): category-similarity threshold used by the variety check (Description Rule 7).
-VARIETY_SIMILARITY_THRESHOLD: Final[float | None] = None
+# DECIDED (OD-08): a candidate more similar than this to the meal served in the same slot the
+# previous day is skipped (Description stage 8 / Rule 7).
+VARIETY_SIMILARITY_THRESHOLD: Final[float] = 0.80
+
+# DECIDED (OD-21): portion sizes the planner may choose so plans meet the calorie target.
+SERVING_STEP: Final[str] = "0.25"
+MIN_SERVINGS: Final[str] = "0.75"
+MAX_SERVINGS: Final[str] = "2.00"
+
+# DECIDED (OD-03): nutrition fit is soft – a candidate whose portioned calories are within this
+# fraction of the slot target counts as a good fit; others are ranked lower, not removed.
+NUTRITION_FIT_TOLERANCE: Final[float] = 0.30
+
+# DECIDED (REQ-4.2.7): weekly balance targets – meals containing vegetables / fruit per day.
+VEGETABLE_MEALS_PER_DAY: Final[int] = 2
+FRUIT_MEALS_PER_DAY: Final[int] = 1
+
+# DECIDED: ranking weights (stage 7). Higher score = better. Documented in architecture overview.
+RANKING_WEIGHTS: Final[dict[str, float]] = {
+    "nutrition_fit": 3.0,  # closeness to the slot calorie target
+    "protein_fit": 1.5,  # protein towards the slot protein target
+    "goal_fit": 2.0,  # REQ-4.2.4 goal orientation
+    "budget_fit": 1.5,  # cheaper relative to the per-meal budget (Rule 3)
+    "over_meal_budget": 1.0,  # penalty when above the per-meal budget
+    "feedback": 1.5,  # weighted feedback score / 3 (Rules 5 & 8)
+    "favourite_similarity": 1.5,  # Rule 8 – similar to a favourite
+    "bmi_priority": 1.0,  # Rule 6 – BMI > 25 favours weight-loss meals
+    "repeat_penalty": 1.0,  # per earlier use in the same week
+    "recent_penalty": 0.4,  # served in the previous plan
+    "balance": 0.3,  # REQ-4.2.7 vegetables / fruit still needed
+}
+
+# Food groups ignored when comparing meals for similarity (cooking basics).
+PANTRY_FOOD_GROUPS: Final[frozenset[str]] = frozenset(
+    {"Oils & Fats", "Spices & Condiments", "Sweeteners"}
+)
+VEGETABLE_GROUP: Final[str] = "Vegetables"
+FRUIT_GROUP: Final[str] = "Fruits"

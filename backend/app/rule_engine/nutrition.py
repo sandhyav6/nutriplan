@@ -10,7 +10,7 @@ All numbers come from ``config.py``. Functions are pure and deterministic.
 
 from decimal import ROUND_HALF_UP, Decimal
 
-from app.models.enums import HealthGoal
+from app.models.enums import HealthGoal, MealSlot
 from app.rule_engine import config
 from app.rule_engine.types import BudgetBreakdown, NutritionTarget, ProfileInput
 
@@ -61,7 +61,23 @@ def calculate_nutrition_target(profile: ProfileInput) -> NutritionTarget:
 
 
 def calculate_budget_breakdown(weekly_budget_inr: Decimal) -> BudgetBreakdown:
-    """Split the weekly budget into daily and per-meal budgets (Description §10.2)."""
-    raise NotImplementedError(
-        "Scheduled for Milestone 3 – the per-slot split is open decision OD-05."
+    """Weekly → daily → per-meal budget (Description §10.2) using ``config.SLOT_SHARES``."""
+    weekly = Decimal(weekly_budget_inr)
+    daily = weekly / Decimal(config.DAYS_PER_PLAN)
+    per_meal = {
+        slot: (daily * Decimal(str(share))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        for slot, share in config.SLOT_SHARES.items()
+    }
+    return BudgetBreakdown(
+        weekly_inr=weekly,
+        daily_inr=daily.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+        per_meal_inr=per_meal,
     )
+
+
+def slot_targets(target: NutritionTarget) -> dict[MealSlot, tuple[float, float]]:
+    """(calories, protein) target for each meal slot."""
+    return {
+        slot: (target.daily_calories_kcal * share, target.daily_protein_g * share)
+        for slot, share in config.SLOT_SHARES.items()
+    }

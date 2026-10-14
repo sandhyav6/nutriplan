@@ -18,6 +18,17 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logger = logging.getLogger("nutriplan.errors")
 
 
+class AppError(Exception):
+    """Domain error with a stable machine-readable code (e.g. ``plan_infeasible``)."""
+
+    def __init__(self, status_code: int, code: str, message: str, details: Any = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.code = code
+        self.message = message
+        self.details = details
+
+
 def error_body(code: str, message: str, details: Any = None) -> dict[str, Any]:
     body: dict[str, Any] = {"code": code, "message": message}
     if details is not None:
@@ -32,9 +43,22 @@ def _status_code_name(status_code: int) -> str:
         return "error"
 
 
+async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_body(exc.code, exc.message, jsonable_encoder(exc.details)),
+    )
+
+
 async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
-    message = exc.detail if isinstance(exc.detail, str) else _status_code_name(exc.status_code)
-    details = None if isinstance(exc.detail, str) else exc.detail
+    detail = exc.detail
+    if isinstance(detail, dict) and isinstance(detail.get("message"), str):
+        message = detail["message"]
+        details: Any = {k: v for k, v in detail.items() if k != "message"} or None
+    elif isinstance(detail, str):
+        message, details = detail, None
+    else:
+        message, details = _status_code_name(exc.status_code), detail
     return JSONResponse(
         status_code=exc.status_code,
         content=error_body(_status_code_name(exc.status_code), message, details),
@@ -46,7 +70,10 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     fields = [
-        {"location": list(err.get("loc", [])), "message": err.get("msg", "Invalid value")}
+        {
+            "location": list(err.get("loc", [])),
+            "message": str(err.get("msg", "Invalid value")).removeprefix("Value error, "),
+        }
         for err in exc.errors()
     ]
     return JSONResponse(
@@ -66,6 +93,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, unhandled_exception_handler)
