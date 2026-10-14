@@ -1,0 +1,32 @@
+[project]
+name = "nutriplan-backend"
+version = "0.1.0"
+description = "NutriPlan – Adaptive Meal Planning Based on Lifestyle (FastAPI backend)"
+requires-python = ">=3.14"
+readme = "../README.md"
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "RUF"]
+# Docs and messages intentionally use typographic characters such as "–", "×" and "₹".
+ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.isort]
+# The local migrations folder is also called "alembic"; the package is third-party.
+known-third-party = ["alembic"]
+known-first-party = ["app"]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic migrations are generated code.
+"alembic/versions/*.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+  "integration: requires a PostgreSQL test database (set TEST_DATABASE_URL)",
+]

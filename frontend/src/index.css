@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+/* NutriPlan design tokens – warm neutral canvas with a restrained green accent. */
+@theme {
+  --font-sans: 'Inter', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+
+  --color-canvas: #f7f4ee;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1ece2;
+  --color-line: #e3dccf;
+  --color-ink: #1f2a24;
+  --color-ink-muted: #56615a;
+
+  --color-brand-50: #eef6f1;
+  --color-brand-100: #d9ebe0;
+  --color-brand-200: #b5d6c2;
+  --color-brand-500: #3d8562;
+  --color-brand-600: #2f6b4f;
+  --color-brand-700: #245540;
+  --color-brand-800: #1b4131;
+
+  --color-caution-50: #fdf6e7;
+  --color-caution-200: #f0d9a8;
+  --color-caution-800: #6b4a12;
+
+  --color-danger-50: #fbefed;
+  --color-danger-200: #efc5bf;
+  --color-danger-700: #9b3527;
+}
+
+@layer base {
+  html {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    min-height: 100dvh;
+    font-family: var(--font-sans);
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
