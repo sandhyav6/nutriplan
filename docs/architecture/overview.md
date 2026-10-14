@@ -39,7 +39,7 @@ flowchart LR
 | Repositories | `backend/app/repositories` | Persistence queries per aggregate | Hold business rules |
 | Rule engine | `backend/app/rule_engine` | Nutrition targets, filters, ranking, variety, planning, validation | Import FastAPI, sessions or the DB |
 | Models | `backend/app/models` | SQLAlchemy entities + constraints | – |
-| Core | `backend/app/core` | Settings, logging, error format (security in M1) | – |
+| Core | `backend/app/core` | Settings, logging, error format, security, CSRF, request dependencies | – |
 
 Dependencies point inward: `api → services → (repositories, rule_engine)`. The rule engine
 works on plain dataclasses (`rule_engine/types.py`) so every rule is unit-testable without a
@@ -83,9 +83,11 @@ or vector stores exist in this codebase.
   (`app/core/logging.py`); `X-Request-ID` is echoed in responses.
 * **CORS / proxy** – in development the Vite server proxies `/api` to `127.0.0.1:8000`, so
   the browser uses one origin; CORS allows the Vite origins as a fallback.
-* **Security (M1)** – salted password hashing, HttpOnly session cookie, CSRF protection,
-  backend-enforced RBAC (`require_admin`), queries always filtered by the authenticated user,
-  HTTPS in production. Registration can never assign the admin role.
+* **Security** – Argon2id password hashing, opaque HttpOnly session cookie (hash stored in
+  `user_sessions`, `Secure` in production), double-submit CSRF token on every state-changing
+  request (`app/core/csrf.py`), backend-enforced RBAC (`require_user` / `require_admin` in
+  `app/core/deps.py`), queries always filtered by the authenticated user, HTTPS at the reverse
+  proxy in production. Registration can never assign the admin role (OD-12).
 
 ## Runtime topology (development)
 
@@ -94,3 +96,13 @@ or vector stores exist in this codebase.
 | PostgreSQL (Docker) | `127.0.0.1:5433` → container `5432` | `docker compose up -d db` |
 | FastAPI | `http://127.0.0.1:8000` (`/docs`) | `python -m uvicorn app.main:app --reload` |
 | Vite | `http://localhost:5173` | `npm run dev` |
+
+## Runtime topology (production)
+
+One container built from the root `Dockerfile` (Node 22 builds the frontend; Python 3.14 slim
+runs it as a non-root user). On start it runs `alembic upgrade head`, then Uvicorn serves the
+API under `/api/v1` **and** the built React app (`FRONTEND_DIST_DIR`, unknown paths fall back
+to `index.html` for client-side routing, unknown `/api` paths still return the JSON 404). The
+browser therefore talks to one origin – no CORS. PostgreSQL is external (`DATABASE_URL`), TLS
+terminates at a reverse proxy, and `docker compose --profile prod up --build` runs the same
+image locally against the Compose database.

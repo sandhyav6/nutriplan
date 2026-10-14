@@ -12,26 +12,27 @@ milestone shown).
 
 | ID | Topic | Status | Needed by |
 | --- | --- | --- | --- |
-| OD-01 | Meaning of "closest feasible plan" | Proposed | M3 |
+| OD-01 | Meaning of "closest feasible plan" | Decided | M3 |
 | OD-02 | Admin CRUD on categories vs four fixed categories | Decided | M2 |
 | OD-03 | Which constraints are hard | Decided | M3 |
 | OD-04 | Rule numbering differs between documents | Decided | – |
-| OD-05 | Calorie/budget share per meal slot | Open | M3 |
+| OD-05 | Calorie/budget share per meal slot | Decided | M3 |
 | OD-06 | Calorie adjustment for Weight Loss / Muscle Gain | Open | M1 |
-| OD-07 | Replacement calorie tolerance | Open | M5 |
-| OD-08 | Definition of "category similarity" for variety | Open | M3 |
+| OD-07 | Replacement calorie tolerance | Decided | M5 |
+| OD-08 | Definition of "category similarity" for variety | Decided | M3 |
 | OD-09 | Dietary preference values | Decided | M1 |
 | OD-10 | Representation of allergies | Decided | M1 |
 | OD-11 | Use of age and gender in targets | Proposed | M1 |
-| OD-12 | Session / token mechanism and CSRF | Proposed | M1 |
+| OD-12 | Session / token mechanism and CSRF | Decided | M1 |
 | OD-13 | Python version | Decided | – |
 | OD-14 | When to install React Hook Form, Zod, Recharts | Decided | M1 / M6 |
 | OD-15 | Source and labelling of the food dataset | Proposed | M2 |
 | OD-16 | Recipe nutrition: derived or entered | Proposed | M2 |
-| OD-17 | REQ-4.2.6 when fewer than four valid meals exist | Proposed | M3 |
-| OD-18 | Week start day | Proposed | M3 |
+| OD-17 | REQ-4.2.6 when fewer than four valid meals exist | Decided | M3 |
+| OD-18 | Week start day | Decided | M3 |
 | OD-19 | User documentation format (SRS TBD-2) | Open | M6 |
 | OD-20 | Hosting, uptime and concurrency targets (SRS TBD-1/3/4) | Open | M6 |
+| OD-21 | Portion sizing of planned meals | Decided | M3 |
 
 ---
 
@@ -42,13 +43,15 @@ and §5.5: diet, allergies and budget are hard constraints that "may never be ov
 
 **Tension:** a plan that exceeds the budget is not "feasible" under §2.5.
 
-**Proposed interpretation:** "closest feasible" never means violating a hard constraint.
+**Decision (implemented in M3):** "closest feasible" never means violating a hard constraint.
 * Every meal shown always satisfies diet, allergy and cooking-time rules.
-* If the weekly budget cannot be met, the engine reports *infeasible* with an explanation
-  (which constraint conflicts, the lowest achievable weekly cost) and does **not** save an
-  over-budget plan as the user's active plan. The user can then adjust budget or other inputs.
+* If the weekly budget cannot be met, `POST /meal-plans/generate` returns 422
+  `budget_infeasible` with the lowest achievable weekly cost (`minimum_weekly_cost_inr`) and
+  does **not** save an over-budget plan; the previous plan stays active. The user can then
+  adjust budget or other inputs.
 * Slots for which no safe meal exists carry an explanation (REQ-4.2.8) instead of a recipe.
-* Soft goals (nutrition fit, variety, balance) may be approximated, with a warning.
+* Soft goals (nutrition fit, variety, balance) are approximated, with plan notes.
+* Tests: `test_weekly_budget_enforced_or_infeasible`, `test_infeasible_budget_returns_explanation`.
 
 ### OD-02 – Category CRUD vs fixed categories
 **Documents:** REQ-4.7.5 asks for create/read/update/delete of meal categories; SRS §2.5,
@@ -76,8 +79,10 @@ Code comments cite **both** sources by name and requirement ID rather than by nu
 
 ### OD-05 – Per-slot shares
 The Description derives a per-meal budget from the daily budget (§10.2) but gives no split.
-**Open:** proposed default breakfast 25 %, lunch 35 %, dinner 30 %, snack 10 % for both
-calories and budget. Configured in `backend/app/rule_engine/config.py` (`SLOT_SHARES`).
+**Decided:** breakfast 25 %, lunch 35 %, dinner 30 %, snack 10 % for both calories and
+budget (`SLOT_SHARES` in `backend/app/rule_engine/config.py`). The per-meal budget is a
+ranking signal; only the **weekly** budget is a hard constraint, so a cheap breakfast can
+fund a dearer dinner.
 
 ### OD-06 – Goal calorie adjustment
 **Documents:** baselines 1800/2300/2800 kcal by activity (§8.1); Muscle Gain → protein
@@ -88,12 +93,21 @@ protein minimums per goal to be agreed. Stored in `config.GOAL_CALORIE_ADJUSTMEN
 
 ### OD-07 – Replacement tolerance
 REQ-4.5.4 requires the replacement to be "within an acceptable tolerance" of the original
-calories. **Open:** proposed ±20 %.
+calories. **Decided:** ±20 % of the original meal's portioned calories
+(`REPLACEMENT_CALORIE_TOLERANCE = 0.20`). The replacement is portioned (OD-21) before the
+check, must keep the weekly total within budget and the repeat limit, and recipes the user
+has already swapped out (`avoid_recipe_ids`) are not offered again. When nothing qualifies
+the API returns 409 `no_replacement` with the reason and the current meal is kept (REQ-4.5.5).
 
 ### OD-08 – Variety similarity
 Description stage 8 compares candidates with recent meals "by category similarity" against a
-threshold; the SRS (REQ-4.2.6) only limits repeats to two per week. **Open:** proposed
-similarity = weighted overlap of main ingredients + macro profile; threshold 0.8.
+threshold; the SRS (REQ-4.2.6) only limits repeats to two per week. **Decided**
+(`rule_engine/variety.py`): similarity = 0.5 × Jaccard overlap of main ingredients (oils,
+spices and sweeteners ignored) + 0.3 × nutrition similarity (macro-energy cosine and calorie
+closeness) + 0.2 × same category. A candidate more similar than **0.8** to the meal in the same
+slot the previous day is skipped when an alternative exists (soft). The two-repeat limit and
+"not twice on the same day" are never relaxed. Favourite boosts (REQ-4.4.4) use the
+ingredient and nutrition parts of the same measure.
 
 ### OD-09 – Dietary preferences
 Documents give "vegetarian, vegan, etc.". **Decided:** `vegan`, `vegetarian`, `eggetarian`,
@@ -114,10 +128,16 @@ a requirements change.
 
 ### OD-12 – Authentication mechanism
 SRS §5.3 requires authentication, RBAC and salted hashing; the mechanism is not specified.
-**Proposed for M1:** Argon2id or bcrypt hashing; short-lived session token in an `HttpOnly`,
-`Secure`, `SameSite=Lax` cookie; CSRF protection on state-changing requests (double-submit
-token header); registration always creates role `user`; admins are promoted by a CLI/seed
-command reading credentials from environment variables.
+**Decided (implemented in M1):**
+* Passwords hashed with **Argon2id** (`argon2-cffi`).
+* Opaque random session token in an `HttpOnly`, `SameSite=Lax` cookie (`np_session`),
+  `Secure` in production; only its hash is stored (`user_sessions`), it expires after
+  `SESSION_TTL_HOURS` (12 h) and logout revokes it server-side.
+* CSRF: double-submit token – `GET /api/v1/auth/csrf` sets `np_csrf`; every
+  POST/PUT/PATCH/DELETE under `/api/v1` must echo it in `X-CSRF-Token` (else 403).
+* Registration always creates role `user` and rejects a `role` field; administrators are
+  created or promoted by `python -m app.cli create-admin` from `NUTRIPLAN_ADMIN_*`
+  environment variables.
 
 ### OD-13 – Python version
 The master plan specifies Python 3.13. The development machine has Python 3.14 only, and the
@@ -142,13 +162,41 @@ foods changes, with no manual override in Release 1.0.
 
 ### OD-17 – Fewer than four safe meals for a slot
 With at most two repeats (REQ-4.2.6), seven days need ≥ 4 distinct meals per slot.
-**Proposed:** never exceed two repeats; remaining slots carry an explanation (REQ-4.2.8)
-suggesting which input to relax.
+**Decided:** never exceed two repeats; remaining slots stay empty with an explanation
+(REQ-4.2.8) naming the constraint that removed the candidates and which input to relax.
+Test: `test_too_few_meals_leaves_explained_slots_instead_of_breaking_repeat_limit`.
 
 ### OD-18 – Week start
-**Proposed:** plans start on Monday of the current week (`planned_meals.day_of_week` 0 =
-Monday).
+**Decided:** plans start on Monday of the current week (`meal_plans.week_start_date`;
+`planned_meals.day_of_week` 0 = Monday). Regenerating archives the previous plan.
 
 ### OD-19 / OD-20 – SRS TBD items
 User documentation format (TBD-2), hosting provider/OS/DB engine (TBD-1 – PostgreSQL is now
 chosen), concurrency (TBD-3) and uptime SLA (TBD-4) remain open until M6.
+
+**Status after M6 (still Open – Product Owner to confirm):**
+* TBD-2: user help, FAQ and an administrator guide ship in-app at `/help`; the README covers
+  installation and operation. Confirm whether a separate PDF manual is also required.
+* TBD-1: the deliverable is a provider-neutral container image (`Dockerfile`, Python 3.14
+  slim on Debian + PostgreSQL 17). The hosting provider is not chosen.
+* TBD-3 / TBD-4: no concurrency or uptime targets are set. The app is stateless apart from
+  PostgreSQL (sessions live in the database), so it can run several Uvicorn workers or
+  containers; only single-request timings (§5.1) are tested.
+
+### OD-21 – Portion sizing of planned meals
+**Documents:** recipes are stored per serving (SRS §2.7, Appendix A), and plans should
+approximate the user's calorie target (REQ-4.2.4, REQ-4.2.7). Nothing says whether a planned
+meal is always exactly one serving.
+
+**Problem:** with one fixed serving per meal, a 2800 kcal (very active) or 1300 kcal
+(weight-loss) target cannot both be approximated by the same recipe catalogue – plans would
+sit systematically above or below the target.
+
+**Decision (implemented in M3, migration `0003`):** each planned meal stores a `servings`
+factor (`planned_meals.servings`, `Numeric(4, 2)`, default 1.00, `CHECK > 0`). The planner
+picks the quarter portion (`SERVING_STEP = 0.25`) closest to the slot's calorie target,
+limited to **0.75–2.00** servings (`MIN_SERVINGS` / `MAX_SERVINGS`). Calories, macros, cost,
+grocery quantities and the weekly-budget check all use the portioned values, and the
+validator checks portioned totals. Hard constraints are unaffected (portioning never changes
+which recipes are allowed). The UI shows e.g. "1.5× serving" and explains it in the help FAQ.
+Test: `test_choose_servings_steps_and_limits`, `test_plan_meets_calorie_target_approximately`.

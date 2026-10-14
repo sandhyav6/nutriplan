@@ -16,6 +16,19 @@ export default defineConfig(({ mode }) => {
         '/api': { target: apiTarget, changeOrigin: true },
       },
     },
+    build: {
+      rolldownOptions: {
+        output: {
+          // Third-party code changes rarely, so it gets its own long-cached chunks.
+          codeSplitting: {
+            groups: [
+              { name: 'react-vendor', test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/ },
+              { name: 'forms-vendor', test: /node_modules[\\/](react-hook-form|@hookform|zod)[\\/]/ },
+            ],
+          },
+        },
+      },
+    },
     test: {
       environment: 'jsdom',
       globals: false,

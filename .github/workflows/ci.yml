@@ -70,3 +70,18 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  docker:
+    name: Production image builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the production image
+        run: docker build -t nutriplan:ci .
+      - name: Image contains the built frontend and refuses to start without a database
+        run: |
+          docker run --rm --entrypoint test nutriplan:ci -f /app/frontend-dist/index.html
+          if docker run --rm nutriplan:ci; then
+            echo "Container started without DATABASE_URL" >&2
+            exit 1
+          fi

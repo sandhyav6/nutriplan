@@ -1,15 +1,16 @@
 import { useState } from 'react'
-import { Link, NavLink } from 'react-router'
+import { Link, NavLink, useNavigate } from 'react-router'
 
+import { useAuth } from '../../hooks/useAuth'
 import { cn } from '../../lib/cn'
 import { buttonClasses } from '../ui/buttonStyles'
 
-const NAV_ITEMS = [
+const USER_NAV = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/meal-plan', label: 'Meal Plan' },
   { to: '/grocery-list', label: 'Grocery List' },
   { to: '/profile', label: 'Profile' },
-  { to: '/admin', label: 'Admin' },
+  { to: '/help', label: 'Help' },
 ] as const
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -30,28 +31,53 @@ export function Logo() {
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false)
+  const { state, logout } = useAuth()
+  const navigate = useNavigate()
+  const signedIn = state.status === 'authenticated'
+  const items = signedIn
+    ? [...USER_NAV, ...(state.user.role === 'admin' ? [{ to: '/admin', label: 'Admin' }] : [])]
+    : [{ to: '/help', label: 'Help' }]
+
+  async function handleLogout() {
+    setOpen(false)
+    await logout()
+    navigate('/login', { replace: true })
+  }
+
+  const accountActions = signedIn ? (
+    <>
+      <span className="hidden max-w-[12rem] truncate text-sm text-ink-muted lg:inline" title={state.user.email}>
+        {state.user.full_name}
+      </span>
+      <button type="button" onClick={handleLogout} className={buttonClasses('secondary', 'sm')}>
+        Log out
+      </button>
+    </>
+  ) : (
+    <>
+      <Link to="/login" className={buttonClasses('ghost', 'sm')} onClick={() => setOpen(false)}>
+        Log in
+      </Link>
+      <Link to="/register" className={buttonClasses('primary', 'sm')} onClick={() => setOpen(false)}>
+        Get started
+      </Link>
+    </>
+  )
 
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-canvas/90 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-line bg-canvas/90 backdrop-blur print:hidden">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Logo />
 
         <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-          {NAV_ITEMS.map((item) => (
+          {items.map((item) => (
             <NavLink key={item.to} to={item.to} className={navClass}>
               {item.label}
             </NavLink>
           ))}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
-          <Link to="/login" className={buttonClasses('ghost', 'sm')}>
-            Log in
-          </Link>
-          <Link to="/register" className={buttonClasses('primary', 'sm')}>
-            Get started
-          </Link>
-        </div>
+        <div className="hidden items-center gap-2 md:flex">{accountActions}</div>
 
         <button
           type="button"
@@ -70,19 +96,12 @@ export function SiteHeader() {
       {open && (
         <nav id="mobile-nav" aria-label="Mobile" className="border-t border-line px-4 py-3 md:hidden">
           <div className="flex flex-col gap-1">
-            {NAV_ITEMS.map((item) => (
+            {items.map((item) => (
               <NavLink key={item.to} to={item.to} className={navClass} onClick={() => setOpen(false)}>
                 {item.label}
               </NavLink>
             ))}
-            <div className="mt-2 flex gap-2 border-t border-line pt-3">
-              <Link to="/login" className={buttonClasses('secondary', 'sm', 'flex-1')} onClick={() => setOpen(false)}>
-                Log in
-              </Link>
-              <Link to="/register" className={buttonClasses('primary', 'sm', 'flex-1')} onClick={() => setOpen(false)}>
-                Get started
-              </Link>
-            </div>
+            <div className="mt-2 flex items-center gap-2 border-t border-line pt-3">{accountActions}</div>
           </div>
         </nav>
       )}

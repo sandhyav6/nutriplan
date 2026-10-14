@@ -1,6 +1,6 @@
 import { ButtonLink } from '../components/ui/Button'
 import { Card, CardDescription, CardTitle } from '../components/ui/Card'
-import { ApiStatusIndicator } from '../features/health/ApiStatusIndicator'
+import { useAuth } from '../hooks/useAuth'
 
 const FLOW = [
   'Register',
@@ -39,6 +39,8 @@ const FEATURES = [
 ] as const
 
 export function HomePage() {
+  const { state } = useAuth()
+  const signedIn = state.status === 'authenticated'
   return (
     <div className="space-y-14">
       <section className="grid items-center gap-10 pt-2 lg:grid-cols-[1.2fr_1fr]">
@@ -55,12 +57,25 @@ export function HomePage() {
             working professionals, families and fitness enthusiasts.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <ButtonLink to="/register" size="lg">
-              Create an account
-            </ButtonLink>
-            <ButtonLink to="/meal-plan" variant="secondary" size="lg">
-              See the meal plan layout
-            </ButtonLink>
+            {signedIn ? (
+              <>
+                <ButtonLink to="/meal-plan" size="lg">
+                  Open my meal plan
+                </ButtonLink>
+                <ButtonLink to="/dashboard" variant="secondary" size="lg">
+                  Dashboard
+                </ButtonLink>
+              </>
+            ) : (
+              <>
+                <ButtonLink to="/register" size="lg">
+                  Create an account
+                </ButtonLink>
+                <ButtonLink to="/login" variant="secondary" size="lg">
+                  Log in
+                </ButtonLink>
+              </>
+            )}
           </div>
         </div>
 
@@ -84,7 +99,7 @@ export function HomePage() {
 
       <section aria-labelledby="features-heading">
         <h2 id="features-heading" className="text-2xl font-bold tracking-tight text-ink">
-          What NutriPlan will do for you
+          What NutriPlan does for you
         </h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((feature) => (
@@ -96,21 +111,10 @@ export function HomePage() {
         </div>
       </section>
 
-      <section aria-labelledby="status-heading">
-        <Card>
-          <h2 id="status-heading" className="text-lg font-semibold text-ink">
-            Project status
-          </h2>
-          <p className="mt-1 text-sm leading-relaxed text-ink-muted">
-            This build is the Milestone 0 project foundation. Screens show their final layout, and
-            each one states which milestone will make it functional. The indicator below calls the
-            real backend health endpoint.
-          </p>
-          <div className="mt-4">
-            <ApiStatusIndicator pollMs={0} />
-          </div>
-        </Card>
-      </section>
+      <p className="text-sm text-ink-muted">
+        Nutrition values are estimates and not medical advice. NutriPlan is a Software Engineering
+        project by Anvita Arun, Sandhya Venkatesh and Saadhvi H (VIT Chennai).
+      </p>
     </div>
   )
 }

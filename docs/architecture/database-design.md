@@ -80,6 +80,7 @@ erDiagram
         smallint day_of_week "0 = Monday"
         varchar slot
         int recipe_id FK "nullable"
+        numeric servings "OD-21, 0.75-2.00"
         text unavailable_reason
     }
     feedback {
@@ -110,7 +111,8 @@ erDiagram
 | `recipe_ingredients` | RECIPE INGREDIENT quantity + unit | unique (recipe, food); quantity > 0 |
 | `recipe_nutrition` | Pre-calculated per-serving nutrition and estimated cost | 1:1 with recipe; values ≥ 0 |
 | `meal_plans` | WEEKLY PLAN per user and week | index (user_id, week_start_date) |
-| `planned_meals` | PLAN ITEM: day × slot → recipe **or** explanation | unique (plan, day, slot); day 0–6; `recipe_id` or `unavailable_reason` required |
+| `planned_meals` | PLAN ITEM: day × slot → recipe **or** explanation, with portion size | unique (plan, day, slot); day 0–6; `recipe_id` or `unavailable_reason` required; `servings > 0` (migration `0003`, OD-21) |
+| `user_sessions` | Login sessions (OD-12) | SHA-256 `token_hash` unique (the raw token is never stored); `expires_at`; cascades from `users` (migration `0002`) |
 | `grocery_lists` / `grocery_list_items` | Aggregated, de-duplicated ingredients | one list per plan; unique (list, food) |
 | `feedback` | Feedback events with weighted score | score ∈ {−3, −1, 1, 3}; index (user, recipe) |
 
@@ -134,13 +136,16 @@ erDiagram
 
 REQ-4.7.5 asks for admin create/update/delete of categories, while SRS §2.5/§5.5/Appendix A
 fix the categories to breakfast, lunch, dinner and snack. The schema preserves the four core
-categories (seeded, unique `slot`). Admins will be able to edit their names/descriptions;
-creating or deleting categories will be rejected with an explanation. See
+categories (seeded, unique `slot`). Admins can edit their names/descriptions; creating or
+deleting categories is rejected with 409 and an explanation. See
 [open-decisions.md – OD-02](../requirements/open-decisions.md#od-02--category-crud-vs-fixed-categories).
 
 ## Seed / reference data
 
 The initial migration inserts only **reference data the schema depends on** – the four meal
-categories and the allergen list. No foods, prices or nutrition values are seeded in M0. A
-clearly labelled illustrative development dataset is planned for M2 (OD-15). No admin account
-or password is ever created by a migration.
+categories and the allergen list. Foods, prices and nutrition values are **not** part of any
+migration: the clearly labelled illustrative development dataset (OD-15; 72 foods, 100
+recipes in `app/seed/catalogue_data.py`) is loaded on demand with
+`python -m app.cli seed-catalogue`, which does nothing if foods already exist. No admin
+account or password is ever created by a migration; `python -m app.cli create-admin` reads
+the credentials from environment variables.

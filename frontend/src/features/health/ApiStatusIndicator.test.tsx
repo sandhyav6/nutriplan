@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { HEALTHY } from '../../test/setup'
+import { HEALTHY, mockApi } from '../../test/mockApi'
 import { ApiStatusIndicator } from './ApiStatusIndicator'
 
 describe('ApiStatusIndicator', () => {
@@ -11,15 +11,7 @@ describe('ApiStatusIndicator', () => {
   })
 
   it('flags an unavailable database', async () => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(
-        async () =>
-          new Response(JSON.stringify({ ...HEALTHY, status: 'degraded', database: 'unavailable' }), {
-            status: 200,
-          }),
-      ),
-    )
+    mockApi({ 'GET /health': { body: { ...HEALTHY, status: 'degraded', database: 'unavailable' } } })
     render(<ApiStatusIndicator pollMs={0} />)
     expect(await screen.findByText(/database unavailable/i)).toBeInTheDocument()
   })

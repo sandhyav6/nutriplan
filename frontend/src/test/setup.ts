@@ -2,22 +2,18 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
 
-import type { HealthResponse } from '../types/api'
+import { mockApi } from './mockApi'
 
-export const HEALTHY: HealthResponse = {
-  status: 'ok',
-  service: 'NutriPlan API',
-  version: '0.1.0',
-  environment: 'test',
-  database: 'ok',
+// jsdom lacks these browser APIs used by the UI.
+HTMLDialogElement.prototype.showModal ??= function showModal(this: HTMLDialogElement) {
+  this.setAttribute('open', '')
+}
+HTMLDialogElement.prototype.close ??= function close(this: HTMLDialogElement) {
+  this.removeAttribute('open')
 }
 
 beforeEach(() => {
-  // Default: every fetch answers like a healthy backend. Individual tests can override.
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => new Response(JSON.stringify(HEALTHY), { status: 200 })),
-  )
+  mockApi() // anonymous visitor with a healthy backend; tests override as needed
 })
 
 afterEach(() => {
