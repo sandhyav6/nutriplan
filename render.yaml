@@ -1,6 +1,7 @@
-# Render Blueprint: one-click deployment of NutriPlan (Docker web service + PostgreSQL).
+# Render Blueprint: one-click deployment of the NutriPlan web service (Docker).
+# The database is external so it does not expire: create a free PostgreSQL database on
+# https://neon.tech and paste its connection string as DATABASE_URL when Render asks.
 # In the Render dashboard: New > Blueprint > select this repository > Apply.
-# You will be asked for the two values marked sync: false (the administrator login).
 services:
   - type: web
     name: nutriplan
@@ -10,10 +11,9 @@ services:
     healthCheckPath: /api/v1/health
     autoDeploy: true
     envVars:
+      # e.g. postgresql://user:password@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require
       - key: DATABASE_URL
-        fromDatabase:
-          name: nutriplan-db
-          property: connectionString
+        sync: false
       - key: SEED_CATALOGUE
         value: "1"
       # Render terminates HTTPS in front of the container.
@@ -23,10 +23,3 @@ services:
         sync: false
       - key: NUTRIPLAN_ADMIN_PASSWORD
         sync: false
-
-databases:
-  - name: nutriplan-db
-    plan: free
-    databaseName: nutriplan
-    user: nutriplan
-    postgresMajorVersion: "17"

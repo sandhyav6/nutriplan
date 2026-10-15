@@ -216,22 +216,24 @@ python -m alembic -x db_url=postgresql+psycopg://... upgrade head   # another da
 
 ## Deploy online (Render, free tier)
 
-`render.yaml` is a Render Blueprint: it creates the Docker web service and a PostgreSQL
-database and wires them together.
+The web service runs on Render; the database runs on Neon, whose free PostgreSQL plan does
+not expire. `render.yaml` is the Render Blueprint for the web service.
 
 1. Push the repository to GitHub.
-2. On https://render.com sign in with GitHub, choose **New → Blueprint**, select the
+2. On https://neon.tech sign in, create a project (PostgreSQL 17, a region close to your
+   Render region) and copy the **connection string** (`postgresql://…?sslmode=require`).
+3. On https://render.com sign in with GitHub, choose **New → Blueprint**, select the
    repository and click **Apply**.
-3. Enter `NUTRIPLAN_ADMIN_EMAIL` and `NUTRIPLAN_ADMIN_PASSWORD` when asked (password: at
-   least 8 characters with a letter and a number).
-4. Wait for the first build (about 5–10 minutes), then open the `https://nutriplan-….onrender.com`
+4. When asked, paste the Neon string as `DATABASE_URL` and enter `NUTRIPLAN_ADMIN_EMAIL` and
+   `NUTRIPLAN_ADMIN_PASSWORD` (at least 8 characters with a letter and a number).
+5. Wait for the first build (about 5–10 minutes), then open the `https://nutriplan-….onrender.com`
    URL shown on the service.
 
 On every start the container applies migrations, loads the illustrative dataset if the
 catalogue is empty (`SEED_CATALOGUE=1`) and creates or updates the administrator from the two
-variables – no shell access is needed. Free web services sleep after inactivity (the first
-request then takes up to a minute), and Render’s free PostgreSQL databases expire after a
-limited period; upgrade the database plan to keep data permanently.
+variables – no shell access is needed. `postgres://` / `postgresql://` URLs are accepted as
+given. Free Render services sleep after about 15 minutes without traffic, so the first request
+afterwards takes up to a minute; Neon pauses idle databases and resumes them automatically.
 
 ## Production build (Docker)
 
