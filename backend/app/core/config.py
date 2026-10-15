@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -25,6 +25,16 @@ class Settings(BaseSettings):
         description="SQLAlchemy URL, e.g. postgresql+psycopg://user:pass@host:5433/nutriplan",
     )
     test_database_url: str = ""
+
+    @field_validator("database_url", "test_database_url")
+    @classmethod
+    def _use_psycopg_driver(cls, url: str) -> str:
+        # Hosting providers (e.g. Render, Heroku) hand out postgres:// or postgresql:// URLs;
+        # without an explicit driver SQLAlchemy would look for psycopg2, which is not installed.
+        for prefix in ("postgres://", "postgresql://"):
+            if url.startswith(prefix):
+                return "postgresql+psycopg://" + url.removeprefix(prefix)
+        return url
 
     # Stored as a comma-separated string so it can be set from a plain env var.
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"

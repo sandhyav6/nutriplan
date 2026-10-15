@@ -215,6 +215,25 @@ python -m alembic check                              # models and migrations in 
 python -m alembic -x db_url=postgresql+psycopg://... upgrade head   # another database
 ```
 
+## Deploy online (Render, free tier)
+
+`render.yaml` is a Render Blueprint: it creates the Docker web service and a PostgreSQL
+database and wires them together.
+
+1. Push the repository to GitHub.
+2. On https://render.com sign in with GitHub, choose **New → Blueprint**, select the
+   repository and click **Apply**.
+3. Enter `NUTRIPLAN_ADMIN_EMAIL` and `NUTRIPLAN_ADMIN_PASSWORD` when asked (password: at
+   least 8 characters with a letter and a number).
+4. Wait for the first build (about 5–10 minutes), then open the `https://nutriplan-….onrender.com`
+   URL shown on the service.
+
+On every start the container applies migrations, loads the illustrative dataset if the
+catalogue is empty (`SEED_CATALOGUE=1`) and creates or updates the administrator from the two
+variables – no shell access is needed. Free web services sleep after inactivity (the first
+request then takes up to a minute), and Render’s free PostgreSQL databases expire after a
+limited period; upgrade the database plan to keep data permanently.
+
 ## Production build (Docker)
 
 The `Dockerfile` builds the frontend, installs only the runtime Python dependencies and runs
@@ -243,6 +262,8 @@ docker run -p 8000:8000 -e DATABASE_URL=postgresql+psycopg://user:pass@dbhost:54
 | `ENVIRONMENT` | `production` in the image → cookies are `Secure` |
 | `COOKIE_SECURE` | Overrides the cookie `Secure` flag (Compose sets `false` for the plain-HTTP localhost trial) |
 | `PORT` / `RUN_MIGRATIONS` / `LOG_LEVEL` | Listen port (8000) / apply migrations on start (1) / log level (INFO) |
+| `SEED_CATALOGUE` | `1` loads the illustrative dataset on start if no foods exist (default `0`) |
+| `NUTRIPLAN_ADMIN_EMAIL` / `NUTRIPLAN_ADMIN_PASSWORD` | If both are set, the administrator is created or updated on start |
 | `FORWARDED_ALLOW_IPS` | Address of the TLS-terminating reverse proxy trusted for `X-Forwarded-*` |
 
 In production, run the container behind HTTPS (SRS §5.3) and leave `COOKIE_SECURE` unset.

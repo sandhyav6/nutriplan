@@ -39,3 +39,15 @@ def test_sqlite_database_folder_is_created(tmp_path) -> None:  # type: ignore[no
     assert target.parent.is_dir()
     ensure_sqlite_directory("sqlite://")  # in-memory: nothing to create
     ensure_sqlite_directory("postgresql+psycopg://u:p@localhost/db")  # not SQLite: no-op
+
+
+@pytest.mark.parametrize(
+    "given",
+    ["postgres://u:p@db.example.com:5432/app", "postgresql://u:p@db.example.com:5432/app"],
+)
+def test_hosted_database_urls_use_the_psycopg_driver(given: str) -> None:
+    settings = Settings(_env_file=None, database_url=given, test_database_url=given)
+    assert settings.database_url == "postgresql+psycopg://u:p@db.example.com:5432/app"
+    assert settings.test_database_url == settings.database_url
+    sqlite = Settings(_env_file=None, database_url="sqlite:///x.db")
+    assert sqlite.database_url == "sqlite:///x.db"
