@@ -7,7 +7,6 @@ Users give feedback (like / dislike / skip / favourite) that adjusts future reco
 can replace a single meal without breaking their constraints, and see a dashboard of weekly
 calories and spending. Administrators maintain the food, recipe, nutrition and category data.
 
-Team: Anvita Arun (24BCE1173), Sandhya Venkatesh (24BCE1042), Saadhvi H (24BCE1987) – VIT Chennai.
 
 * **Release 1.0 / Phase 1 (this repository):** a deterministic, rule-based recommendation
   engine whose decisions are explainable, reproducible and validated against non-negotiable
